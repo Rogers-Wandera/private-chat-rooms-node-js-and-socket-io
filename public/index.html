@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+   <meta charset="UTF-8">
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Document</title>
+</head>
+<body>
+      <div id="error-container"></div>
+      <input id="name" type="text" name="name" placeholder="Enter your name!">
+      <button type="button" name="button" id="button">Let me chat!</button>
+
+      <div id="available-rooms">
+
+      </div>
+   <script src="/socket.io/socket.io.js"></script>
+
+   <script>
+      var socket = io();
+      var room;
+      const input = document.getElementById("name");
+      document.getElementById("button").addEventListener("click", () => {
+         if(input.value){
+            socket.emit("room", input.value)
+         }
+      })
+
+      socket.on("roomExists", (data) => {
+         document.getElementById("error-container").innerHTML = data
+      })
+
+      socket.on("roomCreated", (data) => {
+         document.getElementById("error-container").innerHTML = data
+      })
+
+      function displayRooms() {
+         socket.on("availableRooms", (data) => {
+            console.log(data)
+           const displayAvailableRooms =  document.getElementById("available-rooms");
+           const h1 = document.createElement("h1");
+           h1.textContent = "Available rooms";
+           const div = document.createElement("div");
+           if(data.length > 0) {
+               div.innerHTML = data.map((room) => {
+                  return `
+                     <div data-id="${room.roomId}">
+                        <h2>${room.roomName}</h3>
+                        <button id="join-room" type="button">join room</button>
+                     </div>
+                  `
+               }).join("");
+               displayAvailableRooms.appendChild(h1)
+               displayAvailableRooms.appendChild(div)
+               const buttonJoinRoom = document.querySelectorAll("#join-room");
+               buttonJoinRoom.forEach((btn) => {
+                  btn.addEventListener("click", (e) => {
+                    const id =  e.target.parentElement.dataset.id;
+                    socket.emit("joinRoom", {id: id});
+                  })
+               })
+            } else {
+               displayAvailableRooms.innerHTML = "No rooms to show"
+            }
+         })
+      }
+      displayRooms();
+
+      socket.on("message", (data) => {
+         document.body.innerHTML = `
+            <p>${data}</p>
+            <div> 
+               <p id="typingShow"></p>
+               <input type="text" id="messageInput"/>
+               <button type="button" id="sendMessage">send message</button>
+               <div id="displayMessages"></div>
+            </div>
+         `
+
+         document.getElementById("sendMessage").addEventListener("click", () => {
+            const messageText = document.getElementById("messageInput");
+            if(messageText.value){
+               socket.emit("msgText", {message: messageText.value})
+            }
+         })
+         let typing = false;
+         socket.emit("typing", {typing: false})
+         document.getElementById("messageInput").addEventListener("keydown", () => {
+            socket.emit("typing", {typing: true})
+         })
+         socket.emit("typing", {typing: false})
+         socket.on("isTyping", (data) => {
+            if(data.typing === true){
+               document.getElementById("typingShow").innerHTML = "Some one is typing...."
+            }
+         })
+         socket.on("msgContent", (data) => {
+            if(data.length > 0) {
+               document.getElementById("displayMessages").innerHTML = data.map((data) => {
+                  return `<p>${data.message}</p>`
+               }).join("")
+            }
+         })
+      })
+   </script>
+</body>
+</html>
